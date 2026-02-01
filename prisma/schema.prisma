@@ -12,13 +12,58 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  ADMIN
+  USER
+  MODERATOR
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String         @id @default(uuid())
+  email         String         @unique
+  username      String         @unique
+  password      String
+  firstName     String
+  lastName      String
+  avatar        String?
+  role          UserRole       @default(USER)
+  status        UserStatus     @default(PENDING)
+  emailVerified Boolean        @default(false)
+  phoneNumber   String?
+  lastLoginAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  refreshTokens RefreshToken[]
+
+  @@index([email])
+  @@index([username])
+}
+
+model RefreshToken {
+  id           String   @id @default(uuid())
+  token        String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family       String   // Token family for rotation tracking
+  expiresAt    DateTime
+  revoked      Boolean  @default(false)
+  revokedAt    DateTime?
+  replacedBy   String?  // ID of the token that replaced this one
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+  
+  @@index([userId])
+  @@index([family])
 }
 
 model Job {
@@ -30,4 +75,27 @@ model Job {
   userId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Organization {
+  id                 String   @id @default(uuid())
+  namaInstansi       String   @map("nama_instansi")
+  daerahInstansi     String   @map("daerah_instansi")
+  namaOrganisasi     String   @map("nama_organisasi")
+  kontak             String
+  jenisOrganisasi    String   @map("jenis_organisasi")
+  bidangOrganisasi   String   @map("bidang_organisasi")
+  tahunBerdiri       Int      @map("tahun_berdiri")
+  penjelasanSingkat  String?  @map("penjelasan_singkat") @db.Text
+  proker             Json?    @default("[]")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([namaInstansi, namaOrganisasi], name: "unique_instansi_organisasi")
+  @@index([namaInstansi])
+  @@index([daerahInstansi])
+  @@index([jenisOrganisasi])
+  @@index([bidangOrganisasi])
+  @@index([namaOrganisasi])
+  @@map("organizations")
 }

@@ -10,7 +10,7 @@ export class AIProcessor extends WorkerHost {
 
   async process(job: Job) {
     console.log('Processing AI task:', job.id);
-    
+
     // Update job status in database
     await this.prisma.job.create({
       data: {
@@ -22,8 +22,8 @@ export class AIProcessor extends WorkerHost {
     });
 
     // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
     const result = {
       processed: true,
       timestamp: new Date(),

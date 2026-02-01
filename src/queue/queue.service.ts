@@ -23,7 +23,7 @@ export class QueueService {
   async getJobStatus(jobId: string) {
     const job = await this.aiQueue.getJob(jobId);
     if (!job) return null;
-    
+
     return {
       id: job.id,
       status: await job.getState(),
