@@ -37,7 +37,7 @@
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@types/uuid": "^11.0.0",
-    "argon2": "^0.44.0",
+    "argon2": "0.31.2",
     "bullmq": "^5.66.5",
     "cache-manager": "^7.2.8",
     "cache-manager-redis-yet": "^5.1.5",
@@ -51,6 +51,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.17.1",
+    "pnpm": "^10.28.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "uuid": "^13.0.0"
