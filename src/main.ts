@@ -9,6 +9,9 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Set Global Prefix
+  app.setGlobalPrefix('api');
+
   // Global Exception Filter
   app.useGlobalFilters(new HttpExceptionFilter());
 
@@ -67,6 +70,7 @@ async function bootstrap() {
       : [
           'http://localhost:9000',
           'http://localhost:3000',
+          'http://localhost:7173',
           'http://127.0.0.1:9000',
         ],
     credentials: true,

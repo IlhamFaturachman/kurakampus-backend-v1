@@ -12,12 +12,7 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  ADMIN
-  USER
-  MODERATOR
-  GUEST
-}
+
 
 enum UserStatus {
   ACTIVE
@@ -27,25 +22,44 @@ enum UserStatus {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  username      String         @unique
-  password      String
-  firstName     String
-  lastName      String
-  avatar        String?
-  role          UserRole       @default(USER)
-  status        UserStatus     @default(PENDING)
-  emailVerified Boolean        @default(false)
-  phoneNumber   String?
-  lastLoginAt   DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  deletedAt     DateTime?
-  refreshTokens RefreshToken[]
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  username            String         @unique
+  password            String
+  firstName           String
+  lastName            String
+  avatar              String?
+  userRoles           UserRole[]
+  status              UserStatus     @default(PENDING)
+  emailVerified       Boolean        @default(false)
+  phoneNumber         String?
+  lastLoginAt         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  deletedAt           DateTime?
+  refreshTokens       RefreshToken[]
+  
+  // 2FA fields
+  twoFactorEnabled    Boolean        @default(false)
+  twoFactorSecret     String?
+  twoFactorBackupCodes String[]      @default([])
+  
+  // Account lockout fields
+  failedLoginAttempts Int            @default(0)
+  lockedUntil         DateTime?
+  
+  // Email verification
+  emailVerificationToken String?
+  emailVerificationExpires DateTime?
+  
+  // Password reset
+  passwordResetToken  String?
+  passwordResetExpires DateTime?
 
   @@index([email])
   @@index([username])
+  @@index([emailVerificationToken])
+  @@index([passwordResetToken])
 }
 
 model RefreshToken {
@@ -90,6 +104,8 @@ model Organization {
   proker             Json?    @default("[]")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
+  userRoles UserRole[]
+  roles     Role[]
 
   @@unique([namaInstansi, namaOrganisasi], name: "unique_instansi_organisasi")
   @@index([namaInstansi])
@@ -98,4 +114,101 @@ model Organization {
   @@index([bidangOrganisasi])
   @@index([namaOrganisasi])
   @@map("organizations")
+}
+
+model Role {
+  id             String        @id @default(uuid())
+  name           String
+  description    String?
+  isSystem       Boolean       @default(false)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+  
+  @@unique([name, organizationId])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  module      String
+  description String?
+  createdAt   DateTime @default(now())
+  
+  rolePermissions RolePermission[]
+  
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id             String    @id @default(uuid())
+  userId         String
+  roleId         String
+  organizationId String?
+  assignedAt     DateTime  @default(now())
+  
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role          @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, roleId, organizationId])
+  @@map("user_roles")
+}
+
+// Security Event Logging
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  type      String   // LOGIN_SUCCESS, LOGIN_FAILED, etc.
+  userId    String?
+  email     String?
+  ipAddress String?
+  userAgent String?
+  metadata  Json?    @default("{}")
+  success   Boolean
+  message   String?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
+// Audit Log for data changes
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String   // CREATE, UPDATE, DELETE
+  entity      String   // User, Organization, etc.
+  entityId    String
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

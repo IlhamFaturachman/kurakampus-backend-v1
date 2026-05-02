@@ -7,7 +7,6 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { RegisterDto } from './dto/register.dto';
@@ -53,9 +52,22 @@ export class AuthService {
         password: hashedPassword,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        role: UserRole.USER,
       },
     });
+
+    // Assign default 'MAHASISWA' role
+    const defaultRole = await this.prisma.role.findFirst({
+      where: { name: 'MAHASISWA', organizationId: null },
+    });
+
+    if (defaultRole) {
+      await this.prisma.userRole.create({
+        data: {
+          userId: user.id,
+          roleId: defaultRole.id,
+        },
+      });
+    }
 
     return this.generateTokens(user.id, user.email, user.username);
   }
@@ -144,23 +156,45 @@ export class AuthService {
     userAgent?: string,
     ipAddress?: string,
   ) {
-    // Fetch user to get role
+    // Fetch user with roles and permissions
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        status: true,
-        emailVerified: true,
-        avatar: true,
+      include: {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
-    const payload = { sub: userId, email, role: user?.role };
+    // Extract roles and permissions with scope
+    const roles = user?.userRoles.map((ur) => ur.role.name) || [];
+    const permissions = Array.from(
+      new Set(
+        user?.userRoles.flatMap((ur) => {
+          const scope = ur.organizationId ? `${ur.organizationId}:` : '';
+          return ur.role.rolePermissions.map(
+            (rp) => `${scope}${rp.permission.name}`,
+          );
+        }) || [],
+      ),
+    );
+
+    const payload = {
+      sub: userId,
+      email,
+      roles,
+      permissions,
+    };
 
     // Generate access token (short-lived)
     const accessToken = await this.jwt.signAsync(payload, {
@@ -213,7 +247,8 @@ export class AuthService {
         firstName: user?.firstName,
         lastName: user?.lastName,
         fullName: user ? `${user.firstName} ${user.lastName}` : undefined,
-        role: user?.role,
+        roles,
+        permissions,
         status: user?.status,
         emailVerified: user?.emailVerified,
         avatar: user?.avatar,

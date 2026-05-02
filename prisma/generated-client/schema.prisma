@@ -1,0 +1,150 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated-client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  username      String         @unique
+  password      String
+  firstName     String
+  lastName      String
+  avatar        String?
+  userRoles     UserRole[]
+  status        UserStatus     @default(PENDING)
+  emailVerified Boolean        @default(false)
+  phoneNumber   String?
+  lastLoginAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  refreshTokens RefreshToken[]
+
+  @@index([email])
+  @@index([username])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  token      String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family     String // Token family for rotation tracking
+  expiresAt  DateTime
+  revoked    Boolean   @default(false)
+  revokedAt  DateTime?
+  replacedBy String? // ID of the token that replaced this one
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([family])
+}
+
+model Job {
+  id        String   @id @default(uuid())
+  type      String
+  status    String   @default("pending")
+  data      Json?
+  result    Json?
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Organization {
+  id                String     @id @default(uuid())
+  namaInstansi      String     @map("nama_instansi")
+  daerahInstansi    String     @map("daerah_instansi")
+  namaOrganisasi    String     @map("nama_organisasi")
+  kontak            String
+  jenisOrganisasi   String     @map("jenis_organisasi")
+  bidangOrganisasi  String     @map("bidang_organisasi")
+  tahunBerdiri      Int        @map("tahun_berdiri")
+  penjelasanSingkat String?    @map("penjelasan_singkat") @db.Text
+  proker            Json?      @default("[]")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+  userRoles         UserRole[]
+
+  @@unique([namaInstansi, namaOrganisasi], name: "unique_instansi_organisasi")
+  @@index([namaInstansi])
+  @@index([daerahInstansi])
+  @@index([jenisOrganisasi])
+  @@index([bidangOrganisasi])
+  @@index([namaOrganisasi])
+  @@map("organizations")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  module      String
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id             String   @id @default(uuid())
+  userId         String
+  roleId         String
+  organizationId String?
+  assignedAt     DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role          @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, organizationId])
+  @@map("user_roles")
+}
